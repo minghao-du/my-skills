@@ -1,114 +1,177 @@
 ---
 name: codebase-design
-description: Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module's interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.
+description: Shared vocabulary and practical principles for designing deep modules, simple interfaces, clear seams, and maintainable code. Use when designing or reviewing module boundaries, improving interfaces, reducing coupling, deepening shallow modules, planning refactors, or making code easier to test and understand.
 ---
 
 # Codebase Design
 
-Design **deep modules**: a lot of behaviour behind a small interface, placed at a clean seam, testable through that interface. Use this language and these principles wherever code is being designed or restructured. The aim is leverage for callers, locality for maintainers, and testability for everyone.
+Design **deep modules**: put substantial, cohesive behaviour behind an interface that is small and easy for callers to use. Place the interface at a clear **seam** so implementation details and change stay local.
+
+This skill provides a shared design vocabulary and a set of decision principles. It is a **design lens, not a mandatory refactoring procedure**. Apply the smallest subset that helps with the current task; do not turn every code change into an architecture exercise.
+
+The aim is to reduce the complexity of the whole system: less information callers must learn, fewer dependencies they must understand, and fewer places that must change together.
 
 ## Glossary
 
-Use these terms exactly: don't substitute "component," "service," "API," or "boundary." Consistent language is the whole point.
+Use these terms consistently when discussing design. They are analytical terms, not a requirement to rename established concepts in the codebase. Preserve precise domain language where it already exists.
 
-**Module**: anything with an interface and an implementation. Deliberately scale-agnostic: a function, class, package, or tier-spanning slice. _Avoid_: unit, component, service.
+**Module**: anything with an interface and an implementation. The term is deliberately scale-agnostic: a function, class, package, process, or tier-spanning slice can be a module.
 
-**Interface**: everything a caller must know to use the module correctly: the type signature, but also invariants, ordering constraints, error modes, required configuration, and performance characteristics. _Avoid_: API, signature (too narrow, they refer only to the type-level surface).
+**Interface**: everything a caller must know to use a module correctly. This includes types and methods, but also invariants, ordering constraints, error semantics, configuration, resource lifecycle, concurrency guarantees, and performance characteristics when callers depend on them. An interface is broader than a language-level `interface` declaration or a method signature.
 
-**Implementation**: what's inside a module, its body of code. Distinct from **Adapter**: a thing can be a small adapter with a large implementation (a Postgres repo) or a large adapter with a small implementation (an in-memory fake). Reach for "adapter" when the seam is the topic; "implementation" otherwise.
+**Implementation**: the code and decisions hidden inside a module. Callers should not need to understand these details unless they are part of the interface contract.
 
-**Depth**: leverage at the interface. The amount of behaviour a caller (or test) can exercise per unit of interface they have to learn. A module is **deep** when a large amount of behaviour sits behind a small interface, **shallow** when the interface is nearly as complex as the implementation.
+**Depth**: the leverage a module provides through its interface: how much useful behaviour a caller can access for how much it must learn. A module is **deep** when substantial, cohesive behaviour sits behind a simple interface; it is **shallow** when the interface exposes nearly as much complexity as the implementation hides. Do not measure depth by lines-of-code ratios.
 
-**Seam** _(Michael Feathers)_: a place where you can alter behaviour without editing in that place; the *location* at which a module's interface lives. Where to put the seam is its own design decision, distinct from what goes behind it. _Avoid_: boundary (overloaded with DDD's bounded context).
+**Seam** (Michael Feathers): a place where behaviour can be varied or replaced without changing the code at the point of use. It is the location of a module's interface and a deliberate design decision.
 
-**Adapter**: a concrete thing that satisfies an interface at a seam. Describes *role* (what slot it fills), not substance (what's inside).
+**Adapter**: a concrete implementation that satisfies an interface at a seam. "Adapter" describes the role it plays; "implementation" describes what it contains.
 
-**Leverage**: what callers get from depth. More capability per unit of interface they learn. One implementation pays back across N call sites and M tests.
+**Leverage**: what callers gain from depth: more capability per unit of interface they must learn. One well-designed implementation can serve many call sites and tests.
 
-**Locality**: what maintainers get from depth. Change, bugs, knowledge, and verification concentrate in one place rather than spreading across callers. Fix once, fixed everywhere.
+**Locality**: what maintainers gain from depth: related knowledge, changes, bugs, and verification are concentrated in one place rather than spread across callers.
 
-## Deep vs shallow
+## Deep vs. shallow modules
 
-**Deep module** = small interface + lots of implementation:
+**Deep module** = a small, understandable interface with substantial implementation behind it.
 
-```
-┌─────────────────────┐
-│   Small Interface   │  ← Few methods, simple params
-├─────────────────────┤
-│                     │
-│  Deep Implementation│  ← Complex logic hidden
-│                     │
-└─────────────────────┘
-```
+**Shallow module** = an interface that is almost as complicated as the implementation, or a wrapper that adds little value.
 
-**Shallow module** = large interface + little implementation (avoid):
+When evaluating depth, ask:
 
-```
-┌─────────────────────────────────┐
-│       Large Interface           │  ← Many methods, complex params
-├─────────────────────────────────┤
-│  Thin Implementation            │  ← Just passes through
-└─────────────────────────────────┘
-```
+- How much useful work does the module do for each decision its caller must make?
+- Can the common use case be expressed simply?
+- Does the interface expose internal data, sequencing, configuration, or error handling unnecessarily?
+- If this module disappeared, would its complexity disappear, or would it spread across its callers?
 
-When designing an interface, ask:
+A small interface is not automatically good. It must still express the module's real contract clearly and safely. Do not remove meaningful capabilities merely to reduce method count.
 
-- Can I reduce the number of methods?
-- Can I simplify the parameters?
-- Can I hide more complexity inside?
+## Core design principles
 
-## Principles
+### 1. Hide knowledge, not just code
 
-- **Depth is a property of the interface, not the implementation.** A deep module can be internally composed of small, mockable, swappable parts; they just aren't part of the interface. A module can have **internal seams** (private to its implementation, used by its own tests) as well as the **external seam** at its interface.
-- **The deletion test.** Imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep.
-- **The interface is the test surface.** Callers and tests cross the same seam. If you want to test *past* the interface, the module is probably the wrong shape.
-- **One adapter means a hypothetical seam. Two adapters means a real one.** Don't introduce a seam unless something actually varies across it.
+A module should own a coherent set of design decisions and hide them from callers. Examples include a storage format, protocol details, retry policy, caching strategy, or a domain rule.
 
-## Designing for testability
+Avoid **information leakage**: the same design decision should not need to be understood or reimplemented in several modules.
 
-Good interfaces make testing natural:
+Avoid **temporal decomposition**: do not split modules merely because operations happen at different times (for example, read → parse → transform → write) when those stages all need to know the same format or rules. Organise around the knowledge that should be local, not only around execution order.
 
-1. **Accept dependencies, don't create them.**
+### 2. Make the interface simpler than the implementation
 
-   ```typescript
-   // Testable
-   function processOrder(order, paymentGateway) {}
+Prefer a small interface that handles substantial work internally. Optimise for the caller's understanding, not for making each implementation function individually simple.
 
-   // Hard to test
-   function processOrder(order) {
-     const gateway = new StripeGateway();
-   }
-   ```
+Keep the **common case simple**. Do not force every caller to provide configuration, make policy decisions, or handle rare cases when the module can choose a safe default.
 
-2. **Return results, don't produce side effects.**
+Do not confuse a small interface with a vague interface: document the contract, defaults, invariants, and important failure modes.
 
-   ```typescript
-   // Testable
-   function calculateDiscount(cart): Discount {}
+### 3. Pull complexity downwards
 
-   // Hard to test
-   function applyDiscount(cart): void {
-     cart.total -= discount;
-   }
-   ```
+When a lower-level module can safely own a difficult rule or special case, prefer handling it there instead of making every caller repeat it.
 
-3. **Small surface area.** Fewer methods = fewer tests needed. Fewer params = simpler test setup.
+Examples:
+- A storage module should own storage-format details.
+- A request module should own protocol parsing and validation.
+- A scheduler should own the mechanics of retrying or ordering work when that is part of its responsibility.
 
-## Relationships
+Do not push complexity down blindly. Keep responsibilities cohesive, preserve important policy choices at the layer that owns them, and avoid creating a giant "god module".
 
-- A **Module** has exactly one **Interface** (the surface it presents to callers and tests).
-- **Depth** is a property of a **Module**, measured against its **Interface**.
-- A **Seam** is where a **Module**'s **Interface** lives.
-- An **Adapter** sits at a **Seam** and satisfies the **Interface**.
-- **Depth** produces **Leverage** for callers and **Locality** for maintainers.
+### 4. Give each layer a distinct abstraction
 
-## Rejected framings
+Each layer should provide a useful abstraction for the layer above it.
 
-- **Depth as ratio of implementation-lines to interface-lines** (Ousterhout): rewards padding the implementation. We use depth-as-leverage instead.
-- **"Interface" as the TypeScript `interface` keyword or a class's public methods**: too narrow: interface here includes every fact a caller must know.
-- **"Boundary"**: overloaded with DDD's bounded context. Say **seam** or **interface**.
+Watch for:
+- **Pass-through methods** that only forward a call without adding policy, translation, validation, or a meaningful abstraction.
+- **Pass-through variables** that merely carry information through several layers that do not use it.
+- Multiple layers that expose the same concepts and require callers to understand all of them.
 
-## Going deeper
+A layer is justified when it hides a decision, owns a responsibility, or creates a meaningful change point. Do not add layers just to make the architecture look more modular.
 
-- **Deepening a cluster given its dependencies**, see [DEEPENING.md](DEEPENING.md): dependency categories, seam discipline, and replace-don't-layer testing.
-- **Exploring alternative interfaces**, see [DESIGN-IT-TWICE.md](DESIGN-IT-TWICE.md): spin up parallel sub-agents to design the interface several radically different ways, then compare on depth, locality, and seam placement.
+### 5. Choose module boundaries deliberately
+
+Consider combining modules when:
+- They share substantial knowledge or invariants.
+- Callers must coordinate them to complete one conceptual operation.
+- Combining them simplifies the interface or removes meaningful duplication.
+
+Consider keeping modules separate when:
+- They represent different concepts or have independent reasons to change.
+- One is general-purpose and the other is specific to a particular caller.
+- Combining them would create a broad interface, leak unrelated policy, or reduce locality.
+
+Do not split by file size or class count alone. Do not merge unrelated responsibilities just to create a deeper-looking module. See [DEEPENING.md](DEEPENING.md) for dependency-aware guidance.
+
+### 6. Design errors out when it is safe
+
+Ask whether a supposed error case can be made a normal, well-defined outcome. For example, an idempotent delete operation may reasonably treat "already absent" as success.
+
+Do not hide failures that callers genuinely need to know about. Preserve important distinctions such as data loss, authorization failure, unavailable dependencies, or violated invariants. Handle low-level details near their source, and expose only the error information required by callers.
+
+### 7. Design for testability without designing for mocks
+
+Prefer explicit dependencies when they represent genuine variation, an external effect, or a useful seam. Do not create an interface for every class or inject every dependency solely to make tests easy.
+
+Test behaviour through the module's interface where practical. Internal tests can still be useful for complex algorithms or expensive-to-exercise internals, but they should not become a second public contract or make harmless implementation changes difficult.
+
+A seam can be justified by a single production implementation when it isolates a volatile, costly, unsafe, or externally controlled dependency. Multiple adapters are evidence that a seam is useful, not a universal requirement. Avoid speculative seams and mock-heavy tests that duplicate implementation details.
+
+See [DEEPENING.md](DEEPENING.md) for dependency categories and testing strategies.
+
+### 8. Make code obvious to its readers
+
+Prefer precise names, consistent conventions, and familiar structures. A reader should not need to reconstruct hidden assumptions from distant files.
+
+Comments should explain information that is not obvious from the code:
+- Interface comments describe what callers can rely on.
+- Implementation comments explain non-obvious decisions and why the code is structured that way.
+- Comments should not merely paraphrase each line of code.
+
+For important new modules, drafting interface comments before implementation can reveal an awkward abstraction early. Keep comments close to the code they explain and update them when behaviour changes.
+
+### 9. Design important interfaces more than once
+
+The first plausible design is not necessarily the best. For consequential module boundaries or interfaces, compare materially different alternatives before committing.
+
+Do not do this for every small helper. Use [DESIGN-IT-TWICE.md](DESIGN-IT-TWICE.md) when the choice has meaningful long-term consequences or the user asks to explore alternatives.
+
+### 10. Measure performance; optimise the important path
+
+Prefer clear designs and efficient algorithms from the start, but do not optimise based on guesses. Measure real workloads, identify the critical path, and optimise the operations that dominate cost.
+
+Keep common execution paths simple. Avoid spreading low-level performance concerns across callers unless those callers genuinely own the policy.
+
+## Review questions
+
+When designing, changing, or reviewing a module, ask the relevant questions rather than mechanically answering every item:
+
+1. What knowledge or design decision does this module own?
+2. What must a caller know to use it correctly? Can any of that knowledge be hidden?
+3. Is the common use case simple?
+4. Does the module provide meaningful leverage, or is it mostly a pass-through?
+5. Are multiple modules sharing knowledge that should have one owner?
+6. Does each layer add a distinct abstraction?
+7. Are errors and special cases exposed only when callers need them?
+8. Is the seam real and useful, or speculative indirection?
+9. Can the behaviour be tested through a stable interface?
+10. Would another interface design provide better leverage or locality?
+
+## Red flags
+
+Treat these as prompts to investigate, not automatic proof that the design is wrong:
+
+- **Shallow module**: a large or awkward interface hides little behaviour.
+- **Information leakage**: multiple modules know the same format, protocol, policy, or invariant.
+- **Temporal decomposition**: modules are split by execution step even though they share the same knowledge.
+- **Pass-through method or variable**: a layer forwards calls or data without adding a useful abstraction.
+- **Overexposure**: callers must understand options, state, or special cases that could be hidden.
+- **Special/general mixture**: reusable logic is entangled with one caller's policy.
+- **Conjoined modules**: callers must understand and coordinate several modules as if they were one.
+- **Repetition**: meaningful logic or knowledge is duplicated across call sites.
+- **Vague or hard-to-describe interface**: names and comments cannot state the contract precisely.
+- **Non-obvious behaviour**: code surprises readers or relies on undocumented ordering, defaults, or side effects.
+- **Change amplification**: one conceptual change requires edits across many unrelated modules.
+- **Unknown unknowns**: a maintainer cannot tell what else may need to change.
+
+## Supporting guides
+
+- [DEEPENING.md](DEEPENING.md): deciding whether and how to deepen a cluster, classify dependencies, place seams, and test the result.
+- [DESIGN-IT-TWICE.md](DESIGN-IT-TWICE.md): exploring and comparing alternative interfaces for consequential design decisions.
