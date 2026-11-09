@@ -1,0 +1,123 @@
+{
+  "title": "软件架构浏览器 · 示例",
+  "revision": "示例方案 · 非仓库分析结果",
+  "views": [
+    {
+      "id": "design",
+      "label": "方案设计",
+      "notes": [
+        "此数据仅演示交互，可替换为仓库或文字方案提取的模型。"
+      ],
+      "nodes": [
+        {
+          "id": "web",
+          "label": "用户界面",
+          "kind": "interface",
+          "summary": "提交请求并查看处理结果",
+          "evidence": [
+            {
+              "status": "proposed",
+              "source": "示例设计 §1",
+              "detail": "提交请求并查看处理结果"
+            }
+          ]
+        },
+        {
+          "id": "api",
+          "label": "应用服务",
+          "kind": "service",
+          "summary": "编排业务处理与数据访问",
+          "evidence": [
+            {
+              "status": "proposed",
+              "source": "示例设计 §1",
+              "detail": "编排业务处理与数据访问"
+            }
+          ]
+        },
+        {
+          "id": "db",
+          "label": "数据库",
+          "kind": "store",
+          "summary": "持久化业务记录",
+          "evidence": [
+            {
+              "status": "proposed",
+              "source": "示例设计 §1",
+              "detail": "持久化业务记录"
+            }
+          ]
+        },
+        {
+          "id": "router",
+          "label": "请求路由",
+          "kind": "interface",
+          "summary": "校验并分派请求",
+          "evidence": [
+            {
+              "status": "proposed",
+              "source": "示例设计 §1",
+              "detail": "校验并分派请求"
+            }
+          ],
+          "parent": "api"
+        },
+        {
+          "id": "core",
+          "label": "业务组件",
+          "kind": "service",
+          "summary": "执行业务规则",
+          "evidence": [
+            {
+              "status": "proposed",
+              "source": "示例设计 §1",
+              "detail": "执行业务规则"
+            }
+          ],
+          "parent": "api"
+        }
+      ],
+      "edges": [
+        {
+          "id": "0",
+          "source": "web",
+          "target": "router",
+          "label": "HTTP 请求",
+          "evidence": [
+            {
+              "status": "proposed",
+              "source": "示例设计 §1",
+              "detail": "HTTP 请求"
+            }
+          ]
+        },
+        {
+          "id": "1",
+          "source": "router",
+          "target": "core",
+          "label": "调用",
+          "evidence": [
+            {
+              "status": "proposed",
+              "source": "示例设计 §1",
+              "detail": "调用"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "source": "core",
+          "target": "db",
+          "label": "读写",
+          "evidence": [
+            {
+              "status": "proposed",
+              "source": "示例设计 §1",
+              "detail": "读写"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

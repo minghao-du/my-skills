@@ -1,0 +1,9 @@
+# Installed dependencies and generated HTML bundle
+/node_modules/
+/dist/
+
+# Local build caches and diagnostic logs
+/.vite/
+/.vite-temp/
+*.tsbuildinfo
+npm-debug.log*
