@@ -1,74 +1,54 @@
 # Design It Twice
 
-Use this guide when choosing an important module interface, moving a seam, or consolidating a cluster of modules. The first plausible design is often not the strongest.
+Use this guide for **Branch C** when choosing a consequential module decomposition, moving a seam, or designing an important exposed interface. Keep the scope strictly at module boundaries, submodule structure, and exposed contracts.
 
-This is an optional design exercise, not a mandatory step for every function or small change. Keep the effort proportional to the consequences of the decision.
+## 1. Frame the Boundary Problem
 
-## 1. Frame the problem
+Capture the architectural constraints before proposing alternatives:
 
-Describe the candidate module and its context:
+- Owned behaviour and hidden design decisions.
+- Primary callers, frequent use cases, and critical paths.
+- Essential guarantees callers depend on (avoiding false abstractions), invariants, ordering/concurrency rules, and error conditions.
+- Cross-module decisions and external/volatile dependencies requiring a `Seam`.
+- Domain terminology drawn from existing codebase concepts.
 
-- The behaviour it should own.
-- The callers and their common use cases.
-- The constraints every design must satisfy.
-- The invariants, ordering rules, error modes, and important operational requirements.
-- The dependencies involved and their categories from [DEEPENING.md](DEEPENING.md).
-- What should remain hidden behind the seam.
-- Any existing domain glossary or terminology the project uses.
+Keep any initial sketch illustrative so it clarifies constraints without locking in the first structure.
 
-If the project has no glossary, use its existing code and documentation as the source of domain terms. Do not assume a `GLOSSARY.md` file exists.
+## 2. Sketch 2–3 Materially Different Designs
 
-Keep the initial code sketch illustrative. It should clarify constraints, not silently prescribe the answer.
+Generate two or three alternatives that differ in structure, responsibility placement, or abstraction—varying parameter order or naming alone counts as one design. Examples of distinct directions:
 
-## 2. Produce materially different designs
+- **Minimal general-purpose interface**: Few entry points, high leverage, caller-agnostic primitives.
+- **Common-case-first layered split**: Trivial default path at the outer boundary, specialized options or policies isolated in a distinct submodule or layer.
+- **Seam-isolated core**: Domain module decoupled from volatile or external dependencies via focused internal or public `Seam` / `Adapter` boundaries.
 
-Create two or three alternatives that differ in a meaningful way. For example:
+Document each alternative with this lightweight comparison skeleton:
 
-- **Minimal interface**: few entry points, high leverage, narrow responsibility.
-- **Common-case first**: the default caller path is trivial; uncommon options are handled internally or separately.
-- **Flexible or policy-oriented**: supports multiple real use cases while keeping policy and mechanism in the right modules.
-- **Ports and adapters**: appropriate when external or remote dependencies need a stable seam.
+1. **Module & submodule tree**: Breakdown and where complexity sits.
+2. **Exposed interface sketch**: Key entry points, common-case caller path, essential guarantees, and error/special-case strategy.
+3. **Hidden complexity & seams**: Decisions absorbed inward, `Seam` boundaries, and `Context` usage.
+4. **Trade-offs & ripple scope**: Gains in depth/locality versus coupling or migration surface across peer modules.
 
-Do not create artificial alternatives that differ only in naming or parameter order.
+## 3. Compare Against Architectural Criteria
 
-If sub-agents are available and the design decision justifies the extra time and token cost, ask independent agents to propose alternatives with distinct constraints. Otherwise, generate and critique the alternatives directly. Do not require three or more sub-agents.
+Evaluate every alternative on the same table (judging depth by caller cognitive load rather than line or class counts):
 
-Each alternative should state:
-
-1. **Interface**: types, entry points, parameters, defaults, invariants, ordering, and error semantics.
-2. **Usage**: a realistic example of how the common caller uses it.
-3. **Hidden complexity**: what the module takes responsibility for behind the seam.
-4. **Dependencies and adapters**: what is injected, what is internal, and how production and tests use it.
-5. **Trade-offs**: where the design provides leverage and locality, and where it adds cost.
-6. **Migration impact**: what existing callers and tests would need to change.
-
-## 3. Compare the alternatives
-
-Evaluate each design against the same criteria:
-
-| Criterion | Question |
+| Criterion | Architectural Question |
 |---|---|
-| Depth and leverage | How much useful behaviour does the caller get per unit of interface it must learn? |
-| Interface simplicity | Is the contract small, precise, and easy to use correctly? |
-| Common-case simplicity | Is the most frequent use case straightforward, with sensible defaults? |
-| Information hiding | Are important design decisions owned in one place, or leaked across callers? |
-| Locality | Will related changes and bugs remain concentrated? |
-| Layering | Does each layer add a distinct abstraction, or is it pass-through indirection? |
-| Error design | Are unnecessary error states eliminated without hiding important failures? |
-| Testability | Can behaviour be tested through a stable seam without excessive mocks? |
-| Performance | Are relevant costs and critical paths understood? |
-| Migration cost | Is the improvement worth the changes required? |
+| Depth & leverage | How much capability does the caller gain per unit of interface it must learn? |
+| General-purpose clarity | Does the exposed contract serve current needs without leaking one caller's policy? |
+| Common-case & critical-path simplicity | Is the frequent/hot path concise with safe defaults and minimal cross-layer hops? |
+| Information hiding & false-abstraction safety | Are internal decisions hidden while caller-essential guarantees remain explicit? |
+| Layer distinctness | Does each module/layer add a distinct abstraction without pass-throughs or decorator bloat? |
+| Error & special-case design | Are unnecessary errors/special cases defined out, masked, or aggregated cleanly? |
+| Ripple scope | Are related changes concentrated locally, and is migration cost justified? |
 
-Do not rank designs by line-count ratios, number of classes, or number of methods alone.
+## 4. Recommend One Design
 
-## 4. Recommend one design
+Deliver a single decisive recommendation rather than an unranked menu:
 
-Give a clear recommendation and explain why it is strongest.
+- Identify the winning design (or a clean hybrid with explicit boundary seams) and explain what complexity moves inward and what cognitive load disappears from callers.
+- Name the deliberate trade-offs and remaining architectural risks.
+- Confirm when an existing module boundary is already sufficiently deep and requires no structural change.
 
-- Prefer the design that makes the overall system simplest, not necessarily the one with the smallest implementation.
-- Explain what complexity moves into the module and what knowledge disappears from callers.
-- Identify any deliberate trade-off or unresolved risk.
-- If a hybrid is better, explain which parts combine cleanly and which should remain separate.
-- State when the simpler existing design is already good enough and no refactor is warranted.
-
-The output should help the user make a decision, not leave them with an unranked menu of options.
+Complete when all 2–3 alternatives are evaluated on the full criteria table, one design is decisively recommended, and the recommended design is documented with all four **Completion Criteria** sections from [SKILL.md](SKILL.md).
